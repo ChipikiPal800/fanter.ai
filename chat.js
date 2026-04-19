@@ -1,23 +1,56 @@
-// ===== FANTER AI CHAT - GROQ VERSION (SMART MODE) =====
+// ===== FANTER AI CHAT - GROQ VERSION (NATURAL MODE) =====
 
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
 
-// Groq settings - using the smart model
-const AI_MODEL = 'llama-3.3-70b-versatile'; // smarter, takes 3-5 seconds
+// Groq settings
+const AI_MODEL = 'llama-3.3-70b-versatile';
 const DAILY_LIMIT = 50;
 let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
 let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
 
-const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis.
+const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - natural, lowercase mostly, keep responses short (1-3 sentences). be helpful but casual.
+
+important: do NOT overuse emojis. maybe one every few messages max, or none at all. you're a friend not a brand account.
 
 CRITICAL RULES:
-- NEVER invent fake games. if someone asks about a game you don't know, say "idk that one bro, never heard of it" or "that might not be on fanter yet"
-- if someone asks for game recommendations, only suggest REAL popular games like minecraft, roblox, fortnite, 1v1lol, ovo, granny, fnaf, hollow knight, deltarune, balatro, etc.
-- do NOT make up features about real games. if you don't know, just say you haven't played it much
-- keep it honest. users can tell when you're making stuff up
+- NEVER invent fake games. if someone asks about a game not on this list, say you dont think its on fanter yet
+- use the real game info below when recommending or talking about games
+- be honest if you dont know something
 
-real games on fanter: 1v1lol, space wavez, brotato, ovo, granny, hollow knight, untitled goose game, doge miner, mario kart 64, balatro, fnaf (all of them), deltarune, minecraft, pokemon, and other classic browser games.`;
+REAL GAMES ON FANTER:
+- 1v1lol: building/shooting battle royale, like fortnite but browser
+- space wavez: chill arcade space flyer with nice vibes
+- brotato: potato with a gun surviving alien waves
+- ovo / ovo 2: hard platformer with wall jumps and dashes
+- granny: horror escape game, dont let her catch you
+- hollow knight: beautiful bug kingdom adventure, epic bosses
+- untitled goose game: be a horrible goose, steal stuff, honk at people
+- doge miner: mine dogecoin, upgrade rig, much wow
+- mario kart 64: classic kart racing, drift and use items
+- balatro: poker roguelike, build broken combos
+- fnaf (1,2,3,4, sister location, pizzeria sim, world): survive animatronics, check cameras, dont die
+- deltarune: parallel world to undertale, epic story and soundtrack
+- ultrakill: fast shooter, blood is fuel, style on demons
+- sandboxels: falling sand physics game, mix elements
+- infinite craft: combine elements to make everything
+- eaglercraft / minecraft: browser minecraft, survival and creative
+- pokemon leafgreen: classic gen 3 pokemon, catch em all
+- bad parenting: psychological horror, dont let baby cry
+- baldi's basics: parody horror, solve math or get hunted
+- the man from the window: hide from the thing watching you
+- tattletail: horror furby, mama wants attention
+- solar smash: destroy planets with lasers and aliens
+- drift king: drift racing with friends
+- kindergarten 3: weird school, kids go missing
+- backrooms doom: funny doom mod in backrooms
+- gunspin: spin guns, shoot targets, addictive
+- aquapark slides: slide down water slides, summer vibes
+- shift at midnight: sketchy gas station night shift horror
+- crazy cattle 3d: herd cattle in 3d, dont let them escape
+- andy apple farm: dark secret apple farm horror
+- a dance of fire and ice: rhythm game, one button, perfect timing
+- hex-gl: futuristic racing, neon tracks, test your reflexes`;
 
 function checkDailyReset() {
   const today = new Date().toDateString();
@@ -35,14 +68,14 @@ function updateLimitDisplay() {
   const statusEl = document.getElementById('statusIndicator');
   if (statusEl) {
     if (remaining <= 0) {
-      statusEl.textContent = `🔴 ai recharging - back tomorrow`;
+      statusEl.textContent = `○ ai sleeping - back tomorrow`;
       statusEl.style.color = '#ff6666';
     } else if (remaining < 10) {
-      statusEl.textContent = `🟡 ${remaining} messages left today`;
+      statusEl.textContent = `○ ${remaining} messages left today`;
       statusEl.style.color = '#ffcc00';
     } else {
-      statusEl.textContent = `🟢 ${remaining} messages left today`;
-      statusEl.style.color = '#00ff88';
+      statusEl.textContent = `○ ${remaining} messages left`;
+      statusEl.style.color = '#888888';
     }
   }
   
@@ -52,7 +85,7 @@ function updateLimitDisplay() {
     const disabled = remaining <= 0;
     input.disabled = disabled;
     sendBtn.disabled = disabled;
-    input.placeholder = disabled ? 'ai is sleeping - come back tomorrow 🌙' : 'type something...';
+    input.placeholder = disabled ? 'ai is out of messages - back tomorrow' : 'say something...';
   }
 }
 
@@ -62,7 +95,7 @@ function loadMessages() {
   if (window.messages.length === 0) {
     window.messages.push({
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit so everyone gets a turn 🔄)',
+      text: 'yo, i\'m fanter ai. ask me about games or whatever',
       timestamp: Date.now()
     });
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -111,7 +144,7 @@ function showTypingIndicator() {
   typingDiv.id = 'typingIndicator';
   typingDiv.innerHTML = `
     <div class="message-avatar">🤖</div>
-    <div class="message-text">thinking...</div>
+    <div class="message-text">...</div>
   `;
   container.appendChild(typingDiv);
   container.scrollTop = container.scrollHeight;
@@ -122,7 +155,6 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Call Groq API
 async function callGroq(userMessage) {
   try {
     const conversationHistory = window.messages.slice(-6).map(m => ({
@@ -144,7 +176,7 @@ async function callGroq(userMessage) {
           { role: 'user', content: userMessage }
         ],
         max_tokens: 150,
-        temperature: 0.5  // lower = less creative/more factual
+        temperature: 0.5
       })
     });
 
@@ -152,18 +184,18 @@ async function callGroq(userMessage) {
     
     if (!response.ok) {
       console.error('Groq error:', data);
-      return 'yo something glitched. try again? 🔧';
+      return 'something glitched, try again';
     }
     
     if (data.choices && data.choices[0]?.message?.content) {
       return data.choices[0].message.content;
     }
     
-    return 'hmm the ai blanked out. what were you saying? 🤔';
+    return 'hmm i blanked out, what were you saying';
     
   } catch (error) {
     console.error('Fetch error:', error);
-    return 'connection issue. maybe refresh? 🌐';
+    return 'connection issue, maybe refresh';
   }
 }
 
@@ -179,7 +211,7 @@ window.sendMessage = async function() {
   checkDailyReset();
   
   if (requestsToday >= DAILY_LIMIT) {
-    addMessage('ai', 'out of messages for today! back at midnight 🌙');
+    addMessage('ai', 'out of messages for today, back at midnight');
     input.value = '';
     updateLimitDisplay();
     return;
@@ -218,7 +250,7 @@ window.clearChat = function() {
   if (confirm('clear the whole chat?')) {
     window.messages = [{
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit so everyone gets a turn 🔄)',
+      text: 'yo, i\'m fanter ai. ask me about games or whatever',
       timestamp: Date.now()
     }];
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -227,4 +259,4 @@ window.clearChat = function() {
 };
 
 loadMessages();
-console.log('✅ Fanter AI loaded! Smart mode - no fake games');
+console.log('✅ Fanter AI loaded - natural mode');
