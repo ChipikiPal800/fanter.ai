@@ -5,7 +5,7 @@ let isWaiting = false;
 
 // Hugging Face API settings
 const HF_MODEL = "microsoft/DialoGPT-medium";
-const SYSTEM_PROMPT = "you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis, and never break character. you know about games like minecraft, roblox, fortnite, and browser games. don't use asterisks or roleplay formatting.";
+const SYSTEM_PROMPT = "you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis.";
 
 // Load messages on startup
 function loadMessages() {
@@ -23,6 +23,8 @@ function loadMessages() {
 // Render all messages
 function renderMessages() {
   const container = document.getElementById('messagesContainer');
+  if (!container) return;
+  
   container.innerHTML = '';
   
   messages.forEach(msg => {
@@ -64,12 +66,14 @@ function addMessage(sender, text) {
 // Show typing indicator
 function showTypingIndicator() {
   const container = document.getElementById('messagesContainer');
+  if (!container) return;
+  
   const typingDiv = document.createElement('div');
   typingDiv.className = 'message ai-message typing';
   typingDiv.id = 'typingIndicator';
   typingDiv.innerHTML = `
     <div class="message-avatar">🤖</div>
-    <div class="message-text"></div>
+    <div class="message-text">thinking</div>
   `;
   container.appendChild(typingDiv);
   container.scrollTop = container.scrollHeight;
@@ -90,17 +94,12 @@ function setStatus(text, color = '#00ff88') {
   }
 }
 
+// Call Hugging Face API
 async function callHuggingFace(userMessage, retryCount = 0) {
+  const proxyUrl = 'https://corsproxy.io/?';
+  const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+  
   try {
-    const context = messages.slice(-5).map(m => 
-      `${m.sender === 'ai' ? 'Assistant' : 'Human'}: ${m.text}`
-    ).join('\n');
-    
-    const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\nPrevious conversation:\n${context}\n\nHuman: ${userMessage} [/INST]`;
-    
-    const proxyUrl = 'https://corsproxy.io/?';
-    const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
-    
     const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
       method: 'POST',
       headers: {
@@ -108,48 +107,41 @@ async function callHuggingFace(userMessage, retryCount = 0) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        inputs: prompt,
+        inputs: userMessage,
         parameters: {
-          max_new_tokens: 120,
-          temperature: 0.7,
-          top_p: 0.9,
-          return_full_text: false
+          max_new_tokens: 100,
+          temperature: 0.8,
+          top_p: 0.9
         }
       })
     });
 
-    // if model is loading, wait and retry FOREVER
+    // Model loading - wait and retry
     if (response.status === 503) {
-      setStatus('🟠 model waking up...', '#ff8800');
+      setStatus('🟠 waking up...', '#ff8800');
       await new Promise(resolve => setTimeout(resolve, 4000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
 
     if (!response.ok) {
-      // if it fails for other reasons, retry after a bit
       await new Promise(resolve => setTimeout(resolve, 3000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
 
     const data = await response.json();
-    let aiResponse = data[0]?.generated_text;
     
-    // if response is empty or weird, retry
+    // DialoGPT returns different format
+    let aiResponse = data.generated_text || data[0]?.generated_text || '';
+    
     if (!aiResponse || aiResponse.length < 2) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
     
-    aiResponse = aiResponse.trim();
-    if (aiResponse.startsWith('Assistant:')) {
-      aiResponse = aiResponse.replace('Assistant:', '').trim();
-    }
-    
-    return aiResponse;
+    return aiResponse.trim();
     
   } catch (error) {
-    console.error('error, retrying...', error);
-    // just keep trying forever
+    console.error('error, retrying...');
     await new Promise(resolve => setTimeout(resolve, 3000));
     return callHuggingFace(userMessage, retryCount + 1);
   }
@@ -159,6 +151,9 @@ async function callHuggingFace(userMessage, retryCount = 0) {
 async function sendMessage() {
   const input = document.getElementById('messageInput');
   const sendBtn = document.querySelector('.send-btn');
+  
+  if (!input || !sendBtn) return;
+  
   const message = input.value.trim();
   
   if (!message || isWaiting) return;
@@ -187,7 +182,8 @@ async function sendMessage() {
 
 // Handle enter key
 function handleKeyPress(event) {
-  if (event.key === 'Enter') {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
     sendMessage();
   }
 }
