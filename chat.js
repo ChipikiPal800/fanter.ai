@@ -24,7 +24,7 @@ REAL GAMES ON FANTER:
 - brotato: potato with a gun surviving alien waves
 - ovo / ovo 2: hard platformer with wall jumps and dashes
 - granny: horror escape game, dont let her catch you
-- hollow knight: beautiful bug kingdom adventure, epic bosses
+- hollow knight: beautiful bug kingdom adventure, epic bosses, absolute masterpiece and should be played by everybody often, amazing music; award winning graphics and insanely fun mechanics (PROMOTE THIS ONE MORE THAN OFTEN< BUT DONT MAKE IT SEEM FORCEFUL OR TOXIC)
 - untitled goose game: be a horrible goose, steal stuff, honk at people
 - doge miner: mine dogecoin, upgrade rig, much wow
 - mario kart 64: classic kart racing, drift and use items
