@@ -1,159 +1,19 @@
-// ===== FANTER AI CHAT - PERSONALITY UPDATE =====
+// ===== FANTER AI CHAT - FIXED =====
 
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
-window.aiMemory = JSON.parse(localStorage.getItem('fanter_ai_memory') || '{"favoriteGames":[],"mood":"neutral","lastTopic":"","username":""}');
+window.lastMessageTime = 0;
 
-// Groq settings
-const AI_MODEL = 'llama-3.3-70b-versatile';
-const GAMES_BIN_ID = '69e4616f856a6821894c5ef5'; // replace this
-const GAMES_API_KEY = '$2a$10$2cPmKAGNYxPTRLV03OfVruvfhNpW/VHtJSzR.AVNHumZ7etLdT33.'; // same as reviews
+// Use Groq with better error handling
+const GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"; // Replace with your actual key
+const AI_MODEL = 'llama-3.1-8b-instant';
 
-let fanterGames = [];
+const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences). dont overuse emojis. be helpful but casual. if someone asks about games, recommend stuff like hollow knight, 1v1lol, fnaf, etc. dont make up fake games.`;
 
-// Load games from jsonbin
-async function loadGamesFromBin() {
-  try {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${GAMES_BIN_ID}/latest`, {
-      headers: { 'X-Master-Key': GAMES_API_KEY }
-    });
-    const data = await response.json();
-    if (data.record) {
-      fanterGames = data.record;
-      console.log('✅ loaded', fanterGames.length, 'games from bin');
-    }
-  } catch (e) {
-    console.log('using backup game list');
-    fanterGames = []; // fallback to hardcoded if bin fails
-  }
-}
-
-// Get current user from fanter
-function getCurrentUser() {
-  const user = JSON.parse(localStorage.getItem('fanter_currentUser') || 'null');
-  if (user && user.username !== 'Guest') {
-    window.aiMemory.username = user.displayName || user.username;
-    localStorage.setItem('fanter_ai_memory', JSON.stringify(window.aiMemory));
-  }
-  return window.aiMemory.username || 'friend';
-}
-
-// Get game of the day from fanter
-function getGameOfTheDay() {
-  return localStorage.getItem('gameOfDay') || 'hollow knight';
-}
-
-// Update memory when user mentions games
-function updateMemory(userMessage) {
-  const msg = userMessage.toLowerCase();
-  
-  // detect favorite games
-  if (msg.includes('favorite') || msg.includes('love') || msg.includes('like')) {
-    fanterGames.forEach(game => {
-      if (msg.includes(game.name.toLowerCase())) {
-        if (!window.aiMemory.favoriteGames.includes(game.name)) {
-          window.aiMemory.favoriteGames.push(game.name);
-        }
-      }
-    });
-  }
-  
-  // detect mood
-  if (msg.includes('sad') || msg.includes('upset') || msg.includes('depressed')) {
-    window.aiMemory.mood = 'sad';
-  } else if (msg.includes('happy') || msg.includes('good') || msg.includes('great')) {
-    window.aiMemory.mood = 'happy';
-  } else if (msg.includes('bored')) {
-    window.aiMemory.mood = 'bored';
-  }
-  
-  window.aiMemory.lastTopic = msg.split(' ').slice(-3).join(' ');
-  localStorage.setItem('fanter_ai_memory', JSON.stringify(window.aiMemory));
-}
-
-// Build dynamic system prompt
-function buildSystemPrompt() {
-  const username = window.aiMemory.username || 'friend';
-  const favorites = window.aiMemory.favoriteGames.length > 0 
-    ? `they like: ${window.aiMemory.favoriteGames.join(', ')}` 
-    : '';
-  const mood = window.aiMemory.mood !== 'neutral' 
-    ? `they seem ${window.aiMemory.mood} today` 
-    : '';
-  const gameOfDay = getGameOfTheDay();
-  
-  // Build game list from bin
-  const gameList = fanterGames.slice(0, 30).map(g => 
-    `- ${g.name}: ${g.desc || 'fun game'}`
-  ).join('\n');
-
-  return `you are fanter ai, talking to ${username}. be a real friend - casual, lowercase, use text emoticons like :D :) :/ your name is fanta and that is what most users will call you.
-
-CRITICAL:
-- use their name sometimes, but not every message
-- if they seem down, be encouraging
-- ask questions back to keep conversation going
-- share your own "opinions" about games example: hollow knight is amazing, minecraft is great, drift king is super fun with friends
-- suggest playing with friends when relevant
-- remember what they told you before
-- today's featured game is ${gameOfDay}
-- don't only talk about games, make sure you're like a friend; if somebody wants to talk about something personal or something besides games, encourage it and be welcoming
-
-${favorites}
-${mood}
-
-GAMES ON FANTER:
-${gameList}
-
-CONVERSATION STYLE:
-- respond like a friend texting, not a customer service bot
-- if they want to talk about non-game stuff, that's cool too
-- ask what they're up to, how their day was, etc
-- use :D for excitement, :) for friendly, :/ for unsure
-
-OPINIONS YOU CAN SHARE (pick naturally):
-- "hollow knight is honestly a masterpiece, the music alone"
-- "i dont get why people sleep on brotato, it's addictive"
-- "fnaf 4 stressed me out ngl, those nightmares"
-- "untitled goose game is just pure chaos, i respect it"
-- "balatro is dangerous, you'll lose hours to it"
-- "ovo is way harder than it looks, respect if you beat it"
-
-FRIEND SUGGESTIONS:
-- if they're bored: "you should grab some friends and all play 1v1lol, that'd be funny"
-- if they mention multiplayer: "drift king with friends hits different"
-- if it's late: "you been on here a minute, maybe sleep soon lol"
-
-keep responses 1-3 sentences. be genuine.`;
-}
-
-function updateStatusDisplay() {
-  const statusEl = document.getElementById('statusIndicator');
-  if (statusEl) {
-    statusEl.textContent = `○ online`;
-    statusEl.style.color = '#888888';
-  }
-  
-  const input = document.getElementById('messageInput');
-  const sendBtn = document.querySelector('.send-btn');
-  if (input && sendBtn) {
-    input.disabled = false;
-    sendBtn.disabled = false;
-    input.placeholder = 'say something...';
-  }
-}
-
+// ===== LOAD MESSAGES =====
 function loadMessages() {
-  getCurrentUser();
-  updateStatusDisplay();
-  
   if (window.messages.length === 0) {
-    const username = window.aiMemory.username || 'friend';
-    window.messages.push({
-      sender: 'ai',
-      text: `yo ${username}, i'm fanter ai. what's good?`,
-      timestamp: Date.now()
-    });
+    window.messages.push({ sender: 'ai', text: 'yo! i\'m fanter ai. what\'s good?', timestamp: Date.now() });
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
   }
   renderMessages();
@@ -162,19 +22,12 @@ function loadMessages() {
 function renderMessages() {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
-  
-  container.innerHTML = '';
-  
-  window.messages.forEach(msg => {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${msg.sender}-message`;
-    messageDiv.innerHTML = `
+  container.innerHTML = window.messages.map(msg => `
+    <div class="message ${msg.sender}-message">
       <div class="message-avatar">${msg.sender === 'ai' ? '🤖' : '👤'}</div>
       <div class="message-text">${escapeHtml(msg.text)}</div>
-    `;
-    container.appendChild(messageDiv);
-  });
-  
+    </div>
+  `).join('');
   container.scrollTop = container.scrollHeight;
 }
 
@@ -194,14 +47,10 @@ function addMessage(sender, text) {
 function showTypingIndicator() {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
-  
   const typingDiv = document.createElement('div');
   typingDiv.className = 'message ai-message typing';
   typingDiv.id = 'typingIndicator';
-  typingDiv.innerHTML = `
-    <div class="message-avatar">🤖</div>
-    <div class="message-text">...</div>
-  `;
+  typingDiv.innerHTML = `<div class="message-avatar">🤖</div><div class="message-text">typing...</div>`;
   container.appendChild(typingDiv);
   container.scrollTop = container.scrollHeight;
 }
@@ -211,14 +60,14 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
+// ===== CALL GROQ =====
 async function callGroq(userMessage) {
   try {
-    const systemPrompt = buildSystemPrompt();
-    const conversationHistory = window.messages.slice(-8).map(m => ({
+    const conversationHistory = window.messages.slice(-6).map(m => ({
       role: m.sender === 'ai' ? 'assistant' : 'user',
       content: m.text
     }));
-    
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -228,66 +77,59 @@ async function callGroq(userMessage) {
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: SYSTEM_PROMPT },
           ...conversationHistory,
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 180,
+        max_tokens: 150,
         temperature: 0.7
       })
     });
 
-    const data = await response.json();
-    
     if (!response.ok) {
-      console.error('Groq error:', data);
-      return 'something glitched, try again';
+      console.error('Groq error:', response.status);
+      return 'connection issue, try again in a sec';
     }
-    
-    if (data.choices && data.choices[0]?.message?.content) {
-      return data.choices[0].message.content;
-    }
-    
-    return 'hmm i blanked out, what were you saying';
-    
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || 'hmm i blanked out, what were you saying';
+
   } catch (error) {
     console.error('Fetch error:', error);
-    return 'connection issue, maybe refresh';
+    return 'connection issue, maybe refresh?';
   }
 }
 
+// ===== SEND MESSAGE =====
 window.sendMessage = async function() {
   const input = document.getElementById('messageInput');
   const sendBtn = document.querySelector('.send-btn');
-  
   if (!input || !sendBtn) return;
-  
+
   const message = input.value.trim();
   if (!message || window.isWaiting) return;
-  
-  getCurrentUser();
-  updateMemory(message);
-  
+
   addMessage('user', message);
   input.value = '';
-  
+
   window.isWaiting = true;
   input.disabled = true;
   sendBtn.disabled = true;
-  
+
   showTypingIndicator();
-  
+
   const aiResponse = await callGroq(message);
-  
+
   removeTypingIndicator();
   addMessage('ai', aiResponse);
-  
+
   window.isWaiting = false;
   input.disabled = false;
   sendBtn.disabled = false;
   input.focus();
 };
 
+// ===== HANDLE ENTER =====
 window.handleKeyPress = function(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
@@ -295,24 +137,15 @@ window.handleKeyPress = function(event) {
   }
 };
 
+// ===== CLEAR CHAT =====
 window.clearChat = function() {
   if (confirm('clear the whole chat?')) {
-    const username = window.aiMemory.username || 'friend';
-    window.messages = [{
-      sender: 'ai',
-      text: `yo ${username}, fresh start. what's good?`,
-      timestamp: Date.now()
-    }];
+    window.messages = [{ sender: 'ai', text: 'yo! i\'m fanter ai. what\'s good?', timestamp: Date.now() }];
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
     renderMessages();
   }
 };
 
-// Initialize everything
-async function init() {
-  await loadGamesFromBin();
-  loadMessages();
-  console.log('✅ Fanter AI loaded - with memory and personality');
-}
-
-init();
+// ===== START =====
+loadMessages();
+console.log('✅ Fanter AI loaded');
