@@ -99,11 +99,13 @@ async function callHuggingFace(userMessage, retryCount = 0) {
     
     const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\nPrevious conversation:\n${context}\n\nHuman: ${userMessage} [/INST]`;
     
-    // FIX 1: Use the correct model name (this one exists)
     const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
     
-    // FIX 2: Use the CORS-friendly inference API endpoint
-    const response = await fetch(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
+    // USE A CORS PROXY
+    const proxyUrl = 'https://corsproxy.io/?';
+    const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+    
+    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${HF_TOKEN}`,
@@ -122,8 +124,8 @@ async function callHuggingFace(userMessage, retryCount = 0) {
 
     // Handle model loading (503 error)
     if (response.status === 503 && retryCount < 3) {
-      setStatus('🟠 model is warming up...', '#ff8800');
-      await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
+      setStatus('🟠 model warming up...', '#ff8800');
+      await new Promise(resolve => setTimeout(resolve, 5000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
 
@@ -134,7 +136,6 @@ async function callHuggingFace(userMessage, retryCount = 0) {
     const data = await response.json();
     let aiResponse = data[0]?.generated_text || 'yo sorry, my brain glitched. say that again?';
     
-    // Clean up response
     aiResponse = aiResponse.trim();
     if (aiResponse.startsWith('Assistant:')) {
       aiResponse = aiResponse.replace('Assistant:', '').trim();
@@ -148,43 +149,8 @@ async function callHuggingFace(userMessage, retryCount = 0) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
-    return 'Please try again in a few moments. If this error persists, "hard refresh" your page (ctrl+shift+r).';
+    return 'yo the ai is being difficult rn. try again in a bit? 😤';
   }
-}
-// Send message
-async function sendMessage() {
-  const input = document.getElementById('messageInput');
-  const sendBtn = document.querySelector('.send-btn');
-  const message = input.value.trim();
-  
-  if (!message || isWaiting) return;
-  
-  // Add user message
-  addMessage('user', message);
-  input.value = '';
-  
-  // Disable input
-  isWaiting = true;
-  input.disabled = true;
-  sendBtn.disabled = true;
-  setStatus('🟡 thinking...', '#ffcc00');
-  
-  // Show typing
-  showTypingIndicator();
-  
-  // Get AI response
-  const aiResponse = await callHuggingFace(message);
-  
-  // Remove typing and add response
-  removeTypingIndicator();
-  addMessage('ai', aiResponse);
-  
-  // Re-enable input
-  isWaiting = false;
-  input.disabled = false;
-  sendBtn.disabled = false;
-  setStatus('🟢 online', '#00ff88');
-  input.focus();
 }
 
 // Handle enter key
