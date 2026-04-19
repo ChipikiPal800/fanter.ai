@@ -6,7 +6,7 @@ window.aiMemory = JSON.parse(localStorage.getItem('fanter_ai_memory') || '{"favo
 
 // Groq settings
 const AI_MODEL = 'llama-3.3-70b-versatile';
-const GAMES_BIN_ID = 'YOUR_GAMES_BIN_ID_HERE'; // replace this
+const GAMES_BIN_ID = '69e4616f856a6821894c5ef5'; // replace this
 const GAMES_API_KEY = '$2a$10$2cPmKAGNYxPTRLV03OfVruvfhNpW/VHtJSzR.AVNHumZ7etLdT33.'; // same as reviews
 
 let fanterGames = [];
