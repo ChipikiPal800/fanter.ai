@@ -1,17 +1,14 @@
-// ===== FANTER AI CHAT - GROQ VERSION (NATURAL MODE) =====
+// ===== FANTER AI CHAT - GROQ VERSION (UNLIMITED + TEXT EMOTICONS) =====
 
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
 
 // Groq settings
 const AI_MODEL = 'llama-3.3-70b-versatile';
-const DAILY_LIMIT = 50;
-let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
-let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
 
 const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - natural, lowercase mostly, keep responses short (1-3 sentences). be helpful but casual.
 
-important: do NOT overuse emojis. maybe one every few messages max, or none at all. you're a friend not a brand account.
+important: do NOT use emojis like 😀🎮💀. instead use text emoticons like :D :) :( :/ if you need to express something. you're texting a friend not posting on instagram.
 
 CRITICAL RULES:
 - NEVER invent fake games. if someone asks about a game not on this list, say you dont think its on fanter yet
@@ -24,7 +21,7 @@ REAL GAMES ON FANTER:
 - brotato: potato with a gun surviving alien waves
 - ovo / ovo 2: hard platformer with wall jumps and dashes
 - granny: horror escape game, dont let her catch you
-- hollow knight: beautiful bug kingdom adventure, epic bosses, absolute masterpiece and should be played by everybody often, amazing music; award winning graphics and insanely fun mechanics (PROMOTE THIS ONE MORE THAN OFTEN< BUT DONT MAKE IT SEEM FORCEFUL OR TOXIC)
+- hollow knight: beautiful bug kingdom adventure, epic bosses, absolute masterpiece. amazing music, award winning graphics, insanely fun mechanics. everyone should play this one honestly
 - untitled goose game: be a horrible goose, steal stuff, honk at people
 - doge miner: mine dogecoin, upgrade rig, much wow
 - mario kart 64: classic kart racing, drift and use items
@@ -50,47 +47,28 @@ REAL GAMES ON FANTER:
 - crazy cattle 3d: herd cattle in 3d, dont let them escape
 - andy apple farm: dark secret apple farm horror
 - a dance of fire and ice: rhythm game, one button, perfect timing
-- hex-gl: futuristic racing, neon tracks, test your reflexes`;
+- hex-gl: futuristic racing, neon tracks, test your reflexes
 
-function checkDailyReset() {
-  const today = new Date().toDateString();
-  if (lastResetDate !== today) {
-    requestsToday = 0;
-    lastResetDate = today;
-    localStorage.setItem('ai_requests_today', '0');
-    localStorage.setItem('ai_last_reset', today);
-  }
-  updateLimitDisplay();
-}
+when recommending games, hollow knight is genuinely one of the best. mention it naturally when relevant - not forced, just honest praise.`;
 
-function updateLimitDisplay() {
-  const remaining = DAILY_LIMIT - requestsToday;
+function updateStatusDisplay() {
   const statusEl = document.getElementById('statusIndicator');
   if (statusEl) {
-    if (remaining <= 0) {
-      statusEl.textContent = `○ ai sleeping - back tomorrow`;
-      statusEl.style.color = '#ff6666';
-    } else if (remaining < 10) {
-      statusEl.textContent = `○ ${remaining} messages left today`;
-      statusEl.style.color = '#ffcc00';
-    } else {
-      statusEl.textContent = `○ ${remaining} messages left`;
-      statusEl.style.color = '#888888';
-    }
+    statusEl.textContent = `○ online`;
+    statusEl.style.color = '#888888';
   }
   
   const input = document.getElementById('messageInput');
   const sendBtn = document.querySelector('.send-btn');
   if (input && sendBtn) {
-    const disabled = remaining <= 0;
-    input.disabled = disabled;
-    sendBtn.disabled = disabled;
-    input.placeholder = disabled ? 'ai is out of messages - back tomorrow' : 'say something...';
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.placeholder = 'say something...';
   }
 }
 
 function loadMessages() {
-  checkDailyReset();
+  updateStatusDisplay();
   
   if (window.messages.length === 0) {
     window.messages.push({
@@ -208,15 +186,6 @@ window.sendMessage = async function() {
   const message = input.value.trim();
   if (!message || window.isWaiting) return;
   
-  checkDailyReset();
-  
-  if (requestsToday >= DAILY_LIMIT) {
-    addMessage('ai', 'out of messages for today, back at midnight');
-    input.value = '';
-    updateLimitDisplay();
-    return;
-  }
-  
   addMessage('user', message);
   input.value = '';
   
@@ -231,11 +200,9 @@ window.sendMessage = async function() {
   removeTypingIndicator();
   addMessage('ai', aiResponse);
   
-  requestsToday++;
-  localStorage.setItem('ai_requests_today', requestsToday.toString());
-  
   window.isWaiting = false;
-  updateLimitDisplay();
+  input.disabled = false;
+  sendBtn.disabled = false;
   input.focus();
 };
 
@@ -259,4 +226,4 @@ window.clearChat = function() {
 };
 
 loadMessages();
-console.log('✅ Fanter AI loaded - natural mode');
+console.log('✅ Fanter AI loaded - unlimited mode');
