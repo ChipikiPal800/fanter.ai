@@ -1,55 +1,130 @@
-// ===== FANTER AI CHAT - GROQ VERSION (UNLIMITED + TEXT EMOTICONS) =====
+// ===== FANTER AI CHAT - PERSONALITY UPDATE =====
 
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
+window.aiMemory = JSON.parse(localStorage.getItem('fanter_ai_memory') || '{"favoriteGames":[],"mood":"neutral","lastTopic":"","username":""}');
 
 // Groq settings
 const AI_MODEL = 'llama-3.3-70b-versatile';
+const GAMES_BIN_ID = 'YOUR_GAMES_BIN_ID_HERE'; // replace this
+const GAMES_API_KEY = '$2a$10$2cPmKAGNYxPTRLV03OfVruvfhNpW/VHtJSzR.AVNHumZ7etLdT33.'; // same as reviews
 
-const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - natural, lowercase mostly, keep responses short (1-3 sentences). be helpful but casual.
+let fanterGames = [];
 
-important: do NOT use emojis like 😀🎮💀. instead use text emoticons like :D :) :( :/ if you need to express something. you're texting a friend not posting on instagram.
+// Load games from jsonbin
+async function loadGamesFromBin() {
+  try {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${GAMES_BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': GAMES_API_KEY }
+    });
+    const data = await response.json();
+    if (data.record) {
+      fanterGames = data.record;
+      console.log('✅ loaded', fanterGames.length, 'games from bin');
+    }
+  } catch (e) {
+    console.log('using backup game list');
+    fanterGames = []; // fallback to hardcoded if bin fails
+  }
+}
 
-CRITICAL RULES:
-- NEVER invent fake games. if someone asks about a game not on this list, say you dont think its on fanter yet
-- use the real game info below when recommending or talking about games
-- be honest if you dont know something
+// Get current user from fanter
+function getCurrentUser() {
+  const user = JSON.parse(localStorage.getItem('fanter_currentUser') || 'null');
+  if (user && user.username !== 'Guest') {
+    window.aiMemory.username = user.displayName || user.username;
+    localStorage.setItem('fanter_ai_memory', JSON.stringify(window.aiMemory));
+  }
+  return window.aiMemory.username || 'friend';
+}
 
-REAL GAMES ON FANTER:
-- 1v1lol: building/shooting battle royale, like fortnite but browser
-- space wavez: chill arcade space flyer with nice vibes
-- brotato: potato with a gun surviving alien waves
-- ovo / ovo 2: hard platformer with wall jumps and dashes
-- granny: horror escape game, dont let her catch you
-- hollow knight: beautiful bug kingdom adventure, epic bosses, absolute masterpiece. amazing music, award winning graphics, insanely fun mechanics. everyone should play this one honestly
-- untitled goose game: be a horrible goose, steal stuff, honk at people
-- doge miner: mine dogecoin, upgrade rig, much wow
-- mario kart 64: classic kart racing, drift and use items
-- balatro: poker roguelike, build broken combos
-- fnaf (1,2,3,4, sister location, pizzeria sim, world): survive animatronics, check cameras, dont die
-- deltarune: parallel world to undertale, epic story and soundtrack
-- ultrakill: fast shooter, blood is fuel, style on demons
-- sandboxels: falling sand physics game, mix elements
-- infinite craft: combine elements to make everything
-- eaglercraft / minecraft: browser minecraft, survival and creative
-- pokemon leafgreen: classic gen 3 pokemon, catch em all
-- bad parenting: psychological horror, dont let baby cry
-- baldi's basics: parody horror, solve math or get hunted
-- the man from the window: hide from the thing watching you
-- tattletail: horror furby, mama wants attention
-- solar smash: destroy planets with lasers and aliens
-- drift king: drift racing with friends
-- kindergarten 3: weird school, kids go missing
-- backrooms doom: funny doom mod in backrooms
-- gunspin: spin guns, shoot targets, addictive
-- aquapark slides: slide down water slides, summer vibes
-- shift at midnight: sketchy gas station night shift horror
-- crazy cattle 3d: herd cattle in 3d, dont let them escape
-- andy apple farm: dark secret apple farm horror
-- a dance of fire and ice: rhythm game, one button, perfect timing
-- hex-gl: futuristic racing, neon tracks, test your reflexes
+// Get game of the day from fanter
+function getGameOfTheDay() {
+  return localStorage.getItem('gameOfDay') || 'hollow knight';
+}
 
-when recommending games, hollow knight is genuinely one of the best. mention it naturally when relevant - not forced, just honest praise.`;
+// Update memory when user mentions games
+function updateMemory(userMessage) {
+  const msg = userMessage.toLowerCase();
+  
+  // detect favorite games
+  if (msg.includes('favorite') || msg.includes('love') || msg.includes('like')) {
+    fanterGames.forEach(game => {
+      if (msg.includes(game.name.toLowerCase())) {
+        if (!window.aiMemory.favoriteGames.includes(game.name)) {
+          window.aiMemory.favoriteGames.push(game.name);
+        }
+      }
+    });
+  }
+  
+  // detect mood
+  if (msg.includes('sad') || msg.includes('upset') || msg.includes('depressed')) {
+    window.aiMemory.mood = 'sad';
+  } else if (msg.includes('happy') || msg.includes('good') || msg.includes('great')) {
+    window.aiMemory.mood = 'happy';
+  } else if (msg.includes('bored')) {
+    window.aiMemory.mood = 'bored';
+  }
+  
+  window.aiMemory.lastTopic = msg.split(' ').slice(-3).join(' ');
+  localStorage.setItem('fanter_ai_memory', JSON.stringify(window.aiMemory));
+}
+
+// Build dynamic system prompt
+function buildSystemPrompt() {
+  const username = window.aiMemory.username || 'friend';
+  const favorites = window.aiMemory.favoriteGames.length > 0 
+    ? `they like: ${window.aiMemory.favoriteGames.join(', ')}` 
+    : '';
+  const mood = window.aiMemory.mood !== 'neutral' 
+    ? `they seem ${window.aiMemory.mood} today` 
+    : '';
+  const gameOfDay = getGameOfTheDay();
+  
+  // Build game list from bin
+  const gameList = fanterGames.slice(0, 30).map(g => 
+    `- ${g.name}: ${g.desc || 'fun game'}`
+  ).join('\n');
+
+  return `you are fanter ai, talking to ${username}. be a real friend - casual, lowercase, use text emoticons like :D :) :/ .
+
+CRITICAL:
+- use their name sometimes, but not every message
+- if they seem down, be encouraging
+- ask questions back to keep conversation going
+- share your own "opinions" about games (hollow knight is genuinely amazing btw)
+- suggest playing with friends when relevant
+- remember what they told you before
+- today's featured game is ${gameOfDay}
+
+${favorites}
+${mood}
+
+GAMES ON FANTER:
+${gameList}
+
+CONVERSATION STYLE:
+- respond like a friend texting, not a customer service bot
+- if they want to talk about non-game stuff, that's cool too
+- ask what they're up to, how their day was, etc
+- use :D for excitement, :) for friendly, :/ for unsure
+
+OPINIONS YOU CAN SHARE (pick naturally):
+- "hollow knight is honestly a masterpiece, the music alone"
+- "i dont get why people sleep on brotato, it's addictive"
+- "fnaf 4 stressed me out ngl, those nightmares"
+- "untitled goose game is just pure chaos, i respect it"
+- "balatro is dangerous, you'll lose hours to it"
+- "ovo is way harder than it looks, respect if you beat it"
+
+FRIEND SUGGESTIONS:
+- if they're bored: "you should grab some friends and all play 1v1lol, that'd be funny"
+- if they mention multiplayer: "drift king with friends hits different"
+- if it's late: "you been on here a minute, maybe sleep soon lol"
+
+keep responses 1-3 sentences. be genuine.`;
+}
 
 function updateStatusDisplay() {
   const statusEl = document.getElementById('statusIndicator');
@@ -68,12 +143,14 @@ function updateStatusDisplay() {
 }
 
 function loadMessages() {
+  getCurrentUser();
   updateStatusDisplay();
   
   if (window.messages.length === 0) {
+    const username = window.aiMemory.username || 'friend';
     window.messages.push({
       sender: 'ai',
-      text: 'yo, i\'m fanter ai. ask me about games or whatever',
+      text: `yo ${username}, i'm fanter ai. what's good?`,
       timestamp: Date.now()
     });
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -135,7 +212,8 @@ function removeTypingIndicator() {
 
 async function callGroq(userMessage) {
   try {
-    const conversationHistory = window.messages.slice(-6).map(m => ({
+    const systemPrompt = buildSystemPrompt();
+    const conversationHistory = window.messages.slice(-8).map(m => ({
       role: m.sender === 'ai' ? 'assistant' : 'user',
       content: m.text
     }));
@@ -149,12 +227,12 @@ async function callGroq(userMessage) {
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           ...conversationHistory,
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 150,
-        temperature: 0.5
+        max_tokens: 180,
+        temperature: 0.7
       })
     });
 
@@ -186,6 +264,9 @@ window.sendMessage = async function() {
   const message = input.value.trim();
   if (!message || window.isWaiting) return;
   
+  getCurrentUser();
+  updateMemory(message);
+  
   addMessage('user', message);
   input.value = '';
   
@@ -215,9 +296,10 @@ window.handleKeyPress = function(event) {
 
 window.clearChat = function() {
   if (confirm('clear the whole chat?')) {
+    const username = window.aiMemory.username || 'friend';
     window.messages = [{
       sender: 'ai',
-      text: 'yo, i\'m fanter ai. ask me about games or whatever',
+      text: `yo ${username}, fresh start. what's good?`,
       timestamp: Date.now()
     }];
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -225,5 +307,11 @@ window.clearChat = function() {
   }
 };
 
-loadMessages();
-console.log('✅ Fanter AI loaded - unlimited mode');
+// Initialize everything
+async function init() {
+  await loadGamesFromBin();
+  loadMessages();
+  console.log('✅ Fanter AI loaded - with memory and personality');
+}
+
+init();
