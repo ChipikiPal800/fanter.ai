@@ -90,16 +90,19 @@ function setStatus(text, color = '#00ff88') {
   statusEl.style.color = color;
 }
 
-// Call Hugging Face API
-async function callHuggingFace(userMessage) {
+async function callHuggingFace(userMessage, retryCount = 0) {
   try {
-    // Build conversation context (last 5 messages)
+    // Build conversation context
     const context = messages.slice(-5).map(m => 
       `${m.sender === 'ai' ? 'Assistant' : 'Human'}: ${m.text}`
     ).join('\n');
     
     const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\nPrevious conversation:\n${context}\n\nHuman: ${userMessage} [/INST]`;
     
+    // FIX 1: Use the correct model name (this one exists)
+    const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
+    
+    // FIX 2: Use the CORS-friendly inference API endpoint
     const response = await fetch(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
       method: 'POST',
       headers: {
@@ -116,6 +119,13 @@ async function callHuggingFace(userMessage) {
         }
       })
     });
+
+    // Handle model loading (503 error)
+    if (response.status === 503 && retryCount < 3) {
+      setStatus('🟠 model is warming up...', '#ff8800');
+      await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
+      return callHuggingFace(userMessage, retryCount + 1);
+    }
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -134,10 +144,13 @@ async function callHuggingFace(userMessage) {
     
   } catch (error) {
     console.error('Hugging Face error:', error);
-    return 'yo my ai brain is taking a nap rn. try again in a sec? 😴';
+    if (retryCount < 2) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return callHuggingFace(userMessage, retryCount + 1);
+    }
+    return 'Please try again in a few moments. If this error persists, "hard refresh" your page (ctrl+shift+r).';
   }
 }
-
 // Send message
 async function sendMessage() {
   const input = document.getElementById('messageInput');
