@@ -1,19 +1,16 @@
-// ===== FANTER AI CHAT - OPENROUTER VERSION =====
+// ===== FANTER AI CHAT - GROQ VERSION =====
 
-// Make sure everything is globally accessible
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
 
-// OpenRouter settings
-const AI_MODEL = 'google/gemini-2.0-flash-exp:free';
+// Groq settings - blazing fast
+const AI_MODEL = 'llama-3.1-8b-instant'; // super fast model
 const DAILY_LIMIT = 50;
 let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
 let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
 
-// System prompt
 const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis. dont use asterisks or weird formatting. just plain text.`;
 
-// Check daily reset
 function checkDailyReset() {
   const today = new Date().toDateString();
   if (lastResetDate !== today) {
@@ -25,7 +22,6 @@ function checkDailyReset() {
   updateLimitDisplay();
 }
 
-// Update UI
 function updateLimitDisplay() {
   const remaining = DAILY_LIMIT - requestsToday;
   const statusEl = document.getElementById('statusIndicator');
@@ -52,14 +48,13 @@ function updateLimitDisplay() {
   }
 }
 
-// Load messages
 function loadMessages() {
   checkDailyReset();
   
   if (window.messages.length === 0) {
     window.messages.push({
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit per day so everyone gets a turn 🔄)',
+      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit so everyone gets a turn 🔄)',
       timestamp: Date.now()
     });
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -67,7 +62,6 @@ function loadMessages() {
   renderMessages();
 }
 
-// Render messages
 function renderMessages() {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
@@ -120,21 +114,19 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Call OpenRouter API
-async function callOpenRouter(userMessage) {
+// Call Groq API - super simple and fast
+async function callGroq(userMessage) {
   try {
-    const conversationHistory = window.messages.slice(-8).map(m => ({
+    const conversationHistory = window.messages.slice(-6).map(m => ({
       role: m.sender === 'ai' ? 'assistant' : 'user',
       content: m.text
     }));
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://chipikipal800.github.io',
-        'X-Title': 'Fanter AI'
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: AI_MODEL,
@@ -143,7 +135,7 @@ async function callOpenRouter(userMessage) {
           ...conversationHistory,
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 120,
+        max_tokens: 150,
         temperature: 0.7
       })
     });
@@ -151,8 +143,8 @@ async function callOpenRouter(userMessage) {
     const data = await response.json();
     
     if (!response.ok) {
-      console.error('API Error:', data);
-      return 'yo something went wrong. try again in a sec? 🔧';
+      console.error('Groq error:', data);
+      return 'yo something glitched. try again? 🔧';
     }
     
     if (data.choices && data.choices[0]?.message?.content) {
@@ -167,7 +159,6 @@ async function callOpenRouter(userMessage) {
   }
 }
 
-// Send message - MAKE SURE THIS IS GLOBAL
 window.sendMessage = async function() {
   const input = document.getElementById('messageInput');
   const sendBtn = document.querySelector('.send-btn');
@@ -195,7 +186,7 @@ window.sendMessage = async function() {
   
   showTypingIndicator();
   
-  const aiResponse = await callOpenRouter(message);
+  const aiResponse = await callGroq(message);
   
   removeTypingIndicator();
   addMessage('ai', aiResponse);
@@ -208,7 +199,6 @@ window.sendMessage = async function() {
   input.focus();
 };
 
-// Handle enter key - MAKE SURE THIS IS GLOBAL
 window.handleKeyPress = function(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
@@ -216,12 +206,11 @@ window.handleKeyPress = function(event) {
   }
 };
 
-// Clear chat - MAKE SURE THIS IS GLOBAL
 window.clearChat = function() {
   if (confirm('clear the whole chat?')) {
     window.messages = [{
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit per day so everyone gets a turn 🔄)',
+      text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit so everyone gets a turn 🔄)',
       timestamp: Date.now()
     }];
     localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
@@ -229,7 +218,5 @@ window.clearChat = function() {
   }
 };
 
-// Start everything
 loadMessages();
-
-console.log('✅ Fanter AI loaded! sendMessage is ready');
+console.log('✅ Fanter AI loaded with Groq!');
