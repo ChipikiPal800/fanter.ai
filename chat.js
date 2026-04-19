@@ -4,7 +4,7 @@ let messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 let isWaiting = false;
 
 // Hugging Face API settings
-const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
+const HF_MODEL = "microsoft/DialoGPT-medium";3";
 const SYSTEM_PROMPT = "you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis, and never break character. you know about games like minecraft, roblox, fortnite, and browser games. don't use asterisks or roleplay formatting.";
 
 // Load messages on startup
