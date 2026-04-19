@@ -137,8 +137,7 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Call OpenRouter API
-async function callOpenRouter(userMessage) {
+async function callOpenRouter(userMessage, retryCount = 0) {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -166,6 +165,13 @@ async function callOpenRouter(userMessage) {
     if (!response.ok) {
       const error = await response.json();
       console.error('OpenRouter error:', error);
+      
+      // retry up to 2 more times
+      if (retryCount < 2) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return callOpenRouter(userMessage, retryCount + 1);
+      }
+      
       return 'yo the ai tripped over its own wires. try again? 🔌';
     }
 
@@ -174,52 +180,12 @@ async function callOpenRouter(userMessage) {
     
   } catch (error) {
     console.error('error:', error);
+    if (retryCount < 2) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return callOpenRouter(userMessage, retryCount + 1);
+    }
     return 'connection\'s being weird. one more try? 🌐';
   }
-}
-
-// Send message
-async function sendMessage() {
-  const input = document.getElementById('messageInput');
-  const sendBtn = document.querySelector('.send-btn');
-  
-  if (!input || !sendBtn) return;
-  
-  const message = input.value.trim();
-  
-  if (!message || isWaiting) return;
-  
-  checkDailyReset();
-  
-  // Check limit
-  if (requestsToday >= DAILY_LIMIT) {
-    addMessage('ai', 'i\'m out of messages for today! reset at midnight 🌙 come back then?');
-    input.value = '';
-    updateLimitDisplay();
-    return;
-  }
-  
-  addMessage('user', message);
-  input.value = '';
-  
-  isWaiting = true;
-  input.disabled = true;
-  sendBtn.disabled = true;
-  
-  showTypingIndicator();
-  
-  const aiResponse = await callOpenRouter(message);
-  
-  removeTypingIndicator();
-  addMessage('ai', aiResponse);
-  
-  // Increment counter
-  requestsToday++;
-  localStorage.setItem('ai_requests_today', requestsToday.toString());
-  
-  isWaiting = false;
-  updateLimitDisplay();
-  input.focus();
 }
 
 // Handle enter key
