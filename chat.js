@@ -1,18 +1,70 @@
-// ===== FANTER AI CHAT =====
+// ===== FANTER AI CHAT - OPENROUTER VERSION =====
 
 let messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 let isWaiting = false;
 
-// Hugging Face API settings
-const HF_MODEL = "microsoft/DialoGPT-medium";
-const SYSTEM_PROMPT = "you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis.";
+// OpenRouter settings
+const AI_MODEL = 'google/gemini-2.0-flash-exp:free'; // free model
+
+// Daily limit - 50 requests per day
+const DAILY_LIMIT = 50;
+let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
+let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
+
+// Check if we need to reset daily counter
+function checkDailyReset() {
+  const today = new Date().toDateString();
+  if (lastResetDate !== today) {
+    requestsToday = 0;
+    lastResetDate = today;
+    localStorage.setItem('ai_requests_today', '0');
+    localStorage.setItem('ai_last_reset', today);
+  }
+  updateLimitDisplay();
+}
+
+// Update the UI to show remaining requests
+function updateLimitDisplay() {
+  const remaining = DAILY_LIMIT - requestsToday;
+  const statusEl = document.getElementById('statusIndicator');
+  if (statusEl) {
+    if (remaining <= 0) {
+      statusEl.textContent = `🔴 ai recharging - back tomorrow`;
+      statusEl.style.color = '#ff6666';
+    } else if (remaining < 10) {
+      statusEl.textContent = `🟡 ${remaining} messages left today`;
+      statusEl.style.color = '#ffcc00';
+    } else {
+      statusEl.textContent = `🟢 ${remaining} messages left today`;
+      statusEl.style.color = '#00ff88';
+    }
+  }
+  
+  // Disable input if limit reached
+  const input = document.getElementById('messageInput');
+  const sendBtn = document.querySelector('.send-btn');
+  if (input && sendBtn) {
+    const disabled = remaining <= 0;
+    input.disabled = disabled;
+    sendBtn.disabled = disabled;
+    input.placeholder = disabled ? 'ai is sleeping - come back tomorrow 🌙' : 'type something...';
+  }
+}
+
+// System prompt for AI personality
+const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. 
+talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis.
+you know about games like minecraft, roblox, fortnite, and browser games.
+if someone asks about the daily limit, just say "yeah there's a limit so everyone gets a turn. resets at midnight!"`;
 
 // Load messages on startup
 function loadMessages() {
+  checkDailyReset();
+  
   if (messages.length === 0) {
     messages.push({
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good?',
+      text: 'yo! i\'m fanter ai. what\'s good? (btw there\'s a daily limit so everyone gets a turn 🔄)',
       timestamp: Date.now()
     });
     localStorage.setItem('fanter_chat', JSON.stringify(messages));
@@ -85,65 +137,44 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Update status
-function setStatus(text, color = '#00ff88') {
-  const statusEl = document.getElementById('statusIndicator');
-  if (statusEl) {
-    statusEl.textContent = text;
-    statusEl.style.color = color;
-  }
-}
-
-// Call Hugging Face API
-async function callHuggingFace(userMessage, retryCount = 0) {
-  const proxyUrl = 'https://corsproxy.io/?';
-  const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
-  
+// Call OpenRouter API
+async function callOpenRouter(userMessage) {
   try {
-    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${HF_TOKEN}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Fanter AI'
       },
       body: JSON.stringify({
-        inputs: userMessage,
-        parameters: {
-          max_new_tokens: 100,
-          temperature: 0.8,
-          top_p: 0.9
-        }
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...messages.slice(-6).map(m => ({
+            role: m.sender === 'ai' ? 'assistant' : 'user',
+            content: m.text
+          })),
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 150,
+        temperature: 0.7
       })
     });
 
-    // Model loading - wait and retry
-    if (response.status === 503) {
-      setStatus('🟠 waking up...', '#ff8800');
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      return callHuggingFace(userMessage, retryCount + 1);
-    }
-
     if (!response.ok) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      return callHuggingFace(userMessage, retryCount + 1);
+      const error = await response.json();
+      console.error('OpenRouter error:', error);
+      return 'yo the ai tripped over its own wires. try again? 🔌';
     }
 
     const data = await response.json();
-    
-    // DialoGPT returns different format
-    let aiResponse = data.generated_text || data[0]?.generated_text || '';
-    
-    if (!aiResponse || aiResponse.length < 2) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return callHuggingFace(userMessage, retryCount + 1);
-    }
-    
-    return aiResponse.trim();
+    return data.choices[0].message.content;
     
   } catch (error) {
-    console.error('error, retrying...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    return callHuggingFace(userMessage, retryCount + 1);
+    console.error('error:', error);
+    return 'connection\'s being weird. one more try? 🌐';
   }
 }
 
@@ -158,25 +189,36 @@ async function sendMessage() {
   
   if (!message || isWaiting) return;
   
+  checkDailyReset();
+  
+  // Check limit
+  if (requestsToday >= DAILY_LIMIT) {
+    addMessage('ai', 'i\'m out of messages for today! reset at midnight 🌙 come back then?');
+    input.value = '';
+    updateLimitDisplay();
+    return;
+  }
+  
   addMessage('user', message);
   input.value = '';
   
   isWaiting = true;
   input.disabled = true;
   sendBtn.disabled = true;
-  setStatus('🟡 thinking...', '#ffcc00');
   
   showTypingIndicator();
   
-  const aiResponse = await callHuggingFace(message);
+  const aiResponse = await callOpenRouter(message);
   
   removeTypingIndicator();
   addMessage('ai', aiResponse);
   
+  // Increment counter
+  requestsToday++;
+  localStorage.setItem('ai_requests_today', requestsToday.toString());
+  
   isWaiting = false;
-  input.disabled = false;
-  sendBtn.disabled = false;
-  setStatus('🟢 online', '#00ff88');
+  updateLimitDisplay();
   input.focus();
 }
 
@@ -193,7 +235,7 @@ function clearChat() {
   if (confirm('clear the whole chat?')) {
     messages = [{
       sender: 'ai',
-      text: 'yo! i\'m fanter ai. what\'s good?',
+      text: 'yo! i\'m fanter ai. what\'s good? (btw there\'s a daily limit so everyone gets a turn 🔄)',
       timestamp: Date.now()
     }];
     localStorage.setItem('fanter_chat', JSON.stringify(messages));
