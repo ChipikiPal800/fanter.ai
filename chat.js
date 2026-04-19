@@ -90,7 +90,6 @@ function setStatus(text, color = '#00ff88') {
   }
 }
 
-// Call Hugging Face API
 async function callHuggingFace(userMessage, retryCount = 0) {
   try {
     const context = messages.slice(-5).map(m => 
@@ -99,7 +98,6 @@ async function callHuggingFace(userMessage, retryCount = 0) {
     
     const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\nPrevious conversation:\n${context}\n\nHuman: ${userMessage} [/INST]`;
     
-    // CORS proxy to bypass browser restrictions
     const proxyUrl = 'https://corsproxy.io/?';
     const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
     
@@ -120,19 +118,27 @@ async function callHuggingFace(userMessage, retryCount = 0) {
       })
     });
 
-    // Handle model loading
-    if (response.status === 503 && retryCount < 3) {
-      setStatus('🟠 model warming up...', '#ff8800');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    // if model is loading, wait and retry FOREVER
+    if (response.status === 503) {
+      setStatus('🟠 model waking up...', '#ff8800');
+      await new Promise(resolve => setTimeout(resolve, 4000));
       return callHuggingFace(userMessage, retryCount + 1);
     }
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      // if it fails for other reasons, retry after a bit
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return callHuggingFace(userMessage, retryCount + 1);
     }
 
     const data = await response.json();
-    let aiResponse = data[0]?.generated_text || 'yo sorry, my brain glitched. say that again?';
+    let aiResponse = data[0]?.generated_text;
+    
+    // if response is empty or weird, retry
+    if (!aiResponse || aiResponse.length < 2) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return callHuggingFace(userMessage, retryCount + 1);
+    }
     
     aiResponse = aiResponse.trim();
     if (aiResponse.startsWith('Assistant:')) {
@@ -142,12 +148,10 @@ async function callHuggingFace(userMessage, retryCount = 0) {
     return aiResponse;
     
   } catch (error) {
-    console.error('Hugging Face error:', error);
-    if (retryCount < 2) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return callHuggingFace(userMessage, retryCount + 1);
-    }
-    return 'yo the ai is being difficult rn. try again in a bit? 😤';
+    console.error('error, retrying...', error);
+    // just keep trying forever
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    return callHuggingFace(userMessage, retryCount + 1);
   }
 }
 
