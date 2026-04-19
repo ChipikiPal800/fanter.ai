@@ -1,1 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>fanter ai</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <span class="chat-title">🤖 fanter ai</span>
+      <button class="clear-btn" onclick="clearChat()">clear</button>
+    </div>
+    
+    <div class="messages-container" id="messagesContainer">
+      <div class="message ai-message">
+        <div class="message-avatar">🤖</div>
+        <div class="message-text">yo! i'm fanter ai. what's good?</div>
+      </div>
+    </div>
+    
+    <div class="input-container">
+      <input type="text" id="messageInput" placeholder="type something..." onkeypress="handleKeyPress(event)">
+      <button class="send-btn" onclick="sendMessage()">send</button>
+    </div>
+    
+    <div class="chat-footer">
+      <span id="statusIndicator">🟢 online</span>
+      <span>powered by hugging face</span>
+    </div>
+  </div>
 
+  <script src="config.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
