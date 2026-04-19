@@ -1,15 +1,23 @@
-// ===== FANTER AI CHAT - GROQ VERSION =====
+// ===== FANTER AI CHAT - GROQ VERSION (SMART MODE) =====
 
 window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 window.isWaiting = false;
 
-// Groq settings - blazing fast
-const AI_MODEL = 'llama-3.1-8b-instant'; // super fast model
+// Groq settings - using the smart model
+const AI_MODEL = 'llama-3.3-70b-versatile'; // smarter, takes 3-5 seconds
 const DAILY_LIMIT = 50;
 let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
 let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
 
-const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis. dont use asterisks or weird formatting. just plain text.`;
+const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis.
+
+CRITICAL RULES:
+- NEVER invent fake games. if someone asks about a game you don't know, say "idk that one bro, never heard of it" or "that might not be on fanter yet"
+- if someone asks for game recommendations, only suggest REAL popular games like minecraft, roblox, fortnite, 1v1lol, ovo, granny, fnaf, hollow knight, deltarune, balatro, etc.
+- do NOT make up features about real games. if you don't know, just say you haven't played it much
+- keep it honest. users can tell when you're making stuff up
+
+real games on fanter: 1v1lol, space wavez, brotato, ovo, granny, hollow knight, untitled goose game, doge miner, mario kart 64, balatro, fnaf (all of them), deltarune, minecraft, pokemon, and other classic browser games.`;
 
 function checkDailyReset() {
   const today = new Date().toDateString();
@@ -114,7 +122,7 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Call Groq API - super simple and fast
+// Call Groq API
 async function callGroq(userMessage) {
   try {
     const conversationHistory = window.messages.slice(-6).map(m => ({
@@ -136,7 +144,7 @@ async function callGroq(userMessage) {
           { role: 'user', content: userMessage }
         ],
         max_tokens: 150,
-        temperature: 0.7
+        temperature: 0.5  // lower = less creative/more factual
       })
     });
 
@@ -219,4 +227,4 @@ window.clearChat = function() {
 };
 
 loadMessages();
-console.log('✅ Fanter AI loaded with Groq!');
+console.log('✅ Fanter AI loaded! Smart mode - no fake games');
