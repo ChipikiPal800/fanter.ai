@@ -1,13 +1,17 @@
 // ===== FANTER AI CHAT - OPENROUTER VERSION =====
 
-let messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
-let isWaiting = false;
+// Make sure everything is globally accessible
+window.messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
+window.isWaiting = false;
 
-// OpenRouter settings - using best free model
+// OpenRouter settings
 const AI_MODEL = 'google/gemini-2.0-flash-exp:free';
 const DAILY_LIMIT = 50;
 let requestsToday = parseInt(localStorage.getItem('ai_requests_today') || '0');
 let lastResetDate = localStorage.getItem('ai_last_reset') || new Date().toDateString();
+
+// System prompt
+const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis. dont use asterisks or weird formatting. just plain text.`;
 
 // Check daily reset
 function checkDailyReset() {
@@ -48,20 +52,17 @@ function updateLimitDisplay() {
   }
 }
 
-const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. 
-talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis. dont use asterisks or weird formatting. just plain text.`;
-
 // Load messages
 function loadMessages() {
   checkDailyReset();
   
-  if (messages.length === 0) {
-    messages.push({
+  if (window.messages.length === 0) {
+    window.messages.push({
       sender: 'ai',
       text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit per day so everyone gets a turn 🔄)',
       timestamp: Date.now()
     });
-    localStorage.setItem('fanter_chat', JSON.stringify(messages));
+    localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
   }
   renderMessages();
 }
@@ -73,7 +74,7 @@ function renderMessages() {
   
   container.innerHTML = '';
   
-  messages.forEach(msg => {
+  window.messages.forEach(msg => {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${msg.sender}-message`;
     messageDiv.innerHTML = `
@@ -93,9 +94,9 @@ function escapeHtml(text) {
 }
 
 function addMessage(sender, text) {
-  messages.push({ sender, text, timestamp: Date.now() });
-  if (messages.length > 50) messages = messages.slice(-50);
-  localStorage.setItem('fanter_chat', JSON.stringify(messages));
+  window.messages.push({ sender, text, timestamp: Date.now() });
+  if (window.messages.length > 50) window.messages = window.messages.slice(-50);
+  localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
   renderMessages();
 }
 
@@ -119,11 +120,10 @@ function removeTypingIndicator() {
   if (indicator) indicator.remove();
 }
 
-// Call OpenRouter API - simplified and fixed
+// Call OpenRouter API
 async function callOpenRouter(userMessage) {
   try {
-    // Build conversation history
-    const conversationHistory = messages.slice(-8).map(m => ({
+    const conversationHistory = window.messages.slice(-8).map(m => ({
       role: m.sender === 'ai' ? 'assistant' : 'user',
       content: m.text
     }));
@@ -167,15 +167,15 @@ async function callOpenRouter(userMessage) {
   }
 }
 
-// Send message
-async function sendMessage() {
+// Send message - MAKE SURE THIS IS GLOBAL
+window.sendMessage = async function() {
   const input = document.getElementById('messageInput');
   const sendBtn = document.querySelector('.send-btn');
   
   if (!input || !sendBtn) return;
   
   const message = input.value.trim();
-  if (!message || isWaiting) return;
+  if (!message || window.isWaiting) return;
   
   checkDailyReset();
   
@@ -189,7 +189,7 @@ async function sendMessage() {
   addMessage('user', message);
   input.value = '';
   
-  isWaiting = true;
+  window.isWaiting = true;
   input.disabled = true;
   sendBtn.disabled = true;
   
@@ -203,29 +203,33 @@ async function sendMessage() {
   requestsToday++;
   localStorage.setItem('ai_requests_today', requestsToday.toString());
   
-  isWaiting = false;
+  window.isWaiting = false;
   updateLimitDisplay();
   input.focus();
-}
+};
 
-function handleKeyPress(event) {
+// Handle enter key - MAKE SURE THIS IS GLOBAL
+window.handleKeyPress = function(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
-    sendMessage();
+    window.sendMessage();
   }
-}
+};
 
-function clearChat() {
+// Clear chat - MAKE SURE THIS IS GLOBAL
+window.clearChat = function() {
   if (confirm('clear the whole chat?')) {
-    messages = [{
+    window.messages = [{
       sender: 'ai',
       text: 'yo! i\'m fanter ai. what\'s good? (50 msg limit per day so everyone gets a turn 🔄)',
       timestamp: Date.now()
     }];
-    localStorage.setItem('fanter_chat', JSON.stringify(messages));
+    localStorage.setItem('fanter_chat', JSON.stringify(window.messages));
     renderMessages();
   }
-}
+};
 
 // Start everything
 loadMessages();
+
+console.log('✅ Fanter AI loaded! sendMessage is ready');
