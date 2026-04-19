@@ -4,13 +4,12 @@ let messages = JSON.parse(localStorage.getItem('fanter_chat') || '[]');
 let isWaiting = false;
 
 // Hugging Face API settings
-const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2";
+const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
 const SYSTEM_PROMPT = "you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences), be encouraging, use occasional emojis, and never break character. you know about games like minecraft, roblox, fortnite, and browser games. don't use asterisks or roleplay formatting.";
 
 // Load messages on startup
 function loadMessages() {
   if (messages.length === 0) {
-    // Add welcome message
     messages.push({
       sender: 'ai',
       text: 'yo! i\'m fanter ai. what\'s good?',
@@ -54,7 +53,6 @@ function addMessage(sender, text) {
     timestamp: Date.now()
   });
   
-  // Keep only last 50 messages to save space
   if (messages.length > 50) {
     messages = messages.slice(-50);
   }
@@ -86,22 +84,22 @@ function removeTypingIndicator() {
 // Update status
 function setStatus(text, color = '#00ff88') {
   const statusEl = document.getElementById('statusIndicator');
-  statusEl.textContent = text;
-  statusEl.style.color = color;
+  if (statusEl) {
+    statusEl.textContent = text;
+    statusEl.style.color = color;
+  }
 }
 
+// Call Hugging Face API
 async function callHuggingFace(userMessage, retryCount = 0) {
   try {
-    // Build conversation context
     const context = messages.slice(-5).map(m => 
       `${m.sender === 'ai' ? 'Assistant' : 'Human'}: ${m.text}`
     ).join('\n');
     
     const prompt = `<s>[INST] ${SYSTEM_PROMPT}\n\nPrevious conversation:\n${context}\n\nHuman: ${userMessage} [/INST]`;
     
-    const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3";
-    
-    // USE A CORS PROXY
+    // CORS proxy to bypass browser restrictions
     const proxyUrl = 'https://corsproxy.io/?';
     const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
     
@@ -122,7 +120,7 @@ async function callHuggingFace(userMessage, retryCount = 0) {
       })
     });
 
-    // Handle model loading (503 error)
+    // Handle model loading
     if (response.status === 503 && retryCount < 3) {
       setStatus('🟠 model warming up...', '#ff8800');
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -151,6 +149,36 @@ async function callHuggingFace(userMessage, retryCount = 0) {
     }
     return 'yo the ai is being difficult rn. try again in a bit? 😤';
   }
+}
+
+// Send message
+async function sendMessage() {
+  const input = document.getElementById('messageInput');
+  const sendBtn = document.querySelector('.send-btn');
+  const message = input.value.trim();
+  
+  if (!message || isWaiting) return;
+  
+  addMessage('user', message);
+  input.value = '';
+  
+  isWaiting = true;
+  input.disabled = true;
+  sendBtn.disabled = true;
+  setStatus('🟡 thinking...', '#ffcc00');
+  
+  showTypingIndicator();
+  
+  const aiResponse = await callHuggingFace(message);
+  
+  removeTypingIndicator();
+  addMessage('ai', aiResponse);
+  
+  isWaiting = false;
+  input.disabled = false;
+  sendBtn.disabled = false;
+  setStatus('🟢 online', '#00ff88');
+  input.focus();
 }
 
 // Handle enter key
