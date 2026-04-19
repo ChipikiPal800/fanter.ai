@@ -5,7 +5,7 @@ window.isWaiting = false;
 window.lastMessageTime = 0;
 
 // Use Groq with better error handling
-const GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"; // Replace with your actual key
+const GROQ_API_KEY = "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"; // Replace with your actual key
 const AI_MODEL = 'llama-3.1-8b-instant';
 
 const SYSTEM_PROMPT = `you are fanter ai, a chill gaming assistant on a game site called fanter. talk like a cool friend - use lowercase mostly, keep responses short (1-3 sentences). dont overuse emojis. be helpful but casual. if someone asks about games, recommend stuff like hollow knight, 1v1lol, fnaf, etc. dont make up fake games.`;
